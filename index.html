@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Expanded Music Quiz</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      background: #121212;
+      color: white;
+      min-height: 100vh;
+    }
+    h1 {
+      margin-bottom: 1em;
+    }
+    .section {
+      margin-bottom: 1em;
+    }
+    #filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 1em;
+    }
+    #filters label {
+      margin-right: 10px;
+    }
+    button {
+      padding: 0.7em 1.5em;
+      font-size: 1em;
+      border: none;
+      border-radius: 5px;
+      background: #1DB954;
+      color: white;
+      cursor: pointer;
+    }
+    #countdown {
+      font-size: 2em;
+      margin-top: 20px;
+    }
+    #player-setup, #game-area {
+      margin-top: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    #scoreboard table {
+      border-collapse: collapse;
+    }
+    #scoreboard th, #scoreboard td {
+      border: 1px solid #ccc;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎵 Expanded Music Quiz 🎵</h1>
+
+  <div id="filter-section" class="section">
+    <h2>Select Categories</h2>
+    <div id="filters">
+      <!-- Decade checkboxes -->
+      <label><input type="checkbox" value="2020s"> 2020s</label>
+      <label><input type="checkbox" value="2010s"> 2010s</label>
+      <label><input type="checkbox" value="2000s"> 2000s</label>
+      <label><input type="checkbox" value="1990s"> 1990s</label>
+      <label><input type="checkbox" value="1980s"> 1980s</label>
+      <label><input type="checkbox" value="1970s"> 1970s</label>
+      <label><input type="checkbox" value="1960s"> 1960s</label>
+      <label><input type="checkbox" value="1950s"> 1950s</label>
+      <label><input type="checkbox" value="pre1950s"> pre‑1950s</label>
+      <!-- Genre checkboxes -->
+      <label><input type="checkbox" value="hiphop"> Hip Hop</label>
+      <label><input type="checkbox" value="jazz"> Jazz</label>
+      <label><input type="checkbox" value="classical"> Classical</label>
+      <label><input type="checkbox" value="alternative"> Alternative</label>
+      <label><input type="checkbox" value="singerSongwriter"> Singer/Songwriter</label>
+      <!-- Mixed bag default -->
+      <label><input type="checkbox" value="mixedBag" checked> Mixed Bag</label>
+    </div>
+    <button id="start-game-btn">Start Game</button>
+  </div>
+
+  <div id="player-setup" class="section hidden">
+    <h2>Player Setup</h2>
+    <label>Number of Players: <input type="number" id="num-players" min="1" max="8" value="2"></label>
+    <button id="set-players-btn">Set Players</button>
+    <div id="player-names-inputs"></div>
+  </div>
+
+  <div id="game-area" class="section hidden">
+    <h2 id="current-player-header"></h2>
+    <button id="play-song-btn">Play Random Song</button>
+    <div id="countdown"></div>
+    <div id="answer-section" class="hidden">
+      <p>Did you get it right?</p>
+      <button id="answer-yes-btn">Yes</button>
+      <button id="answer-no-btn">No</button>
+    </div>
+    <div id="scoreboard" class="section">
+      <h3>Scores</h3>
+      <table id="score-table">
+        <thead><tr><th>Player</th><th>Score</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script type="module">
+  import mixedBag from './mixedBag.js';
+  import songs2020s from './2020s.js';
+  import songs2010s from './2010s.js';
+  import songs2000s from './2000s.js';
+  import songs1990s from './1990s.js';
+  import songs1980s from './1980s.js';
+  import songs1970s from './1970s.js';
+  import songs1960s from './1960s.js';
+  import songs1950s from './1950s.js';
+  import songsPre1950s from './pre1950s.js';
+  import hiphop from './hiphop.js';
+  import jazz from './jazz.js';
+  import classical from './classical.js';
+  import alternative from './alternative.js';
+  import singerSongwriter from './singerSongwriter.js';
+
+  const categoryData = {
+    mixedBag,
+    "2020s": songs2020s,
+    "2010s": songs2010s,
+    "2000s": songs2000s,
+    "1990s": songs1990s,
+    "1980s": songs1980s,
+    "1970s": songs1970s,
+    "1960s": songs1960s,
+    "1950s": songs1950s,
+    "pre1950s": songsPre1950s,
+    hiphop,
+    jazz,
+    classical,
+    alternative,
+    singerSongwriter
+  };
+
+  const startGameBtn = document.getElementById("start-game-btn");
+  const filterSection = document.getElementById("filter-section");
+  const playerSetupSection = document.getElementById("player-setup");
+  const gameArea = document.getElementById("game-area");
+  const setPlayersBtn = document.getElementById("set-players-btn");
+  const playerNamesInputs = document.getElementById("player-names-inputs");
+  const playSongBtn = document.getElementById("play-song-btn");
+  const numPlayersInput = document.getElementById("num-players");
+  const currentPlayerHeader = document.getElementById("current-player-header");
+  const countdownEl = document.getElementById("countdown");
+  const answerSection = document.getElementById("answer-section");
+  const answerYesBtn = document.getElementById("answer-yes-btn");
+  const answerNoBtn = document.getElementById("answer-no-btn");
+  const scoreTableBody = document.querySelector("#score-table tbody");
+
+  let players = [];
+  let currentPlayerIndex = 0;
+  let selectedSongs = [];
+
+  startGameBtn.addEventListener("click", () => {
+    // gather selected categories
+    const checkedBoxes = document.querySelectorAll("#filters input[type=checkbox]:checked");
+    const categories = Array.from(checkedBoxes).map(cb => cb.value);
+    // build songs list
+    let combined = [];
+    categories.forEach(cat => {
+      const arr = categoryData[cat];
+      if (Array.isArray(arr)) {
+        combined = combined.concat(arr);
+      }
+    });
+    // Remove duplicates
+    selectedSongs = Array.from(new Set(combined));
+    if (selectedSongs.length === 0) {
+      alert("No songs available for the selected categories.");
+      return;
+    }
+    filterSection.classList.add("hidden");
+    playerSetupSection.classList.remove("hidden");
+  });
+
+  setPlayersBtn.addEventListener("click", () => {
+    const n = parseInt(numPlayersInput.value);
+    playerNamesInputs.innerHTML = "";
+    for (let i = 0; i < n; i++) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Player " + (i + 1) + " name";
+      input.required = true;
+      input.id = "player-name-" + i;
+      input.style.margin = "4px 0";
+      playerNamesInputs.appendChild(input);
+    }
+    // Add confirm players button
+    const confirmBtn = document.createElement("button");
+    confirmBtn.textContent = "Start Game";
+    confirmBtn.addEventListener("click", () => {
+      players = [];
+      for (let i = 0; i < n; i++) {
+        const name = document.getElementById("player-name-" + i).value.trim();
+        players.push({ name: name || "Player " + (i + 1), score: 0 });
+      }
+      // initialize scoreboard
+      updateScoreboard();
+      playerSetupSection.classList.add("hidden");
+      gameArea.classList.remove("hidden");
+      currentPlayerIndex = 0;
+      updateCurrentPlayer();
+    });
+    playerNamesInputs.appendChild(confirmBtn);
+  });
+
+  function updateCurrentPlayer() {
+    const player = players[currentPlayerIndex];
+    currentPlayerHeader.textContent = player.name + "'s turn!";
+    answerSection.classList.add("hidden");
+    countdownEl.textContent = "";
+  }
+
+  function updateScoreboard() {
+    scoreTableBody.innerHTML = "";
+    players.forEach(p => {
+      const tr = document.createElement("tr");
+      const tdName = document.createElement("td");
+      tdName.textContent = p.name;
+      const tdScore = document.createElement("td");
+      tdScore.textContent = p.score;
+      tr.appendChild(tdName);
+      tr.appendChild(tdScore);
+      scoreTableBody.appendChild(tr);
+    });
+  }
+
+  playSongBtn.addEventListener("click", () => {
+    countdownEl.textContent = "";
+    answerSection.classList.add("hidden");
+    let counter = 3;
+    countdownEl.textContent = `Get ready... ${counter}`;
+    const interval = setInterval(() => {
+      counter--;
+      if (counter > 0) {
+        countdownEl.textContent = `Get ready... ${counter}`;
+      } else {
+        clearInterval(interval);
+        // pick random track
+        const randomIndex = Math.floor(Math.random() * selectedSongs.length);
+        const trackId = selectedSongs[randomIndex];
+        // Try to open Spotify app
+        window.location.href = `spotify://track/${trackId}`;
+        // Fallback to open.spotify.com
+        setTimeout(() => {
+          window.location.href = `https://open.spotify.com/track/${trackId}`;
+        }, 1500);
+        // show answer buttons
+        answerSection.classList.remove("hidden");
+      }
+    }, 1000);
+  });
+
+  answerYesBtn.addEventListener("click", () => {
+    players[currentPlayerIndex].score += 1;
+    updateScoreboard();
+    nextTurn();
+  });
+
+  answerNoBtn.addEventListener("click", () => {
+    nextTurn();
+  });
+
+  function nextTurn() {
+    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    updateCurrentPlayer();
+  }
+</script>
+</body>
+</html>
